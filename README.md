@@ -37,9 +37,9 @@ The number of deaths per country is considered to be more reliable than the numb
 2. on the other hand, deaths are usually registered
 3. countries have largely varying test capacities which is directly reflected in the large variation of average death rates per country
 
-To make the country comparison more reliable, I found it therefore useful to estimate the number of actual cases based on the death rate that is found in the countries with the largest test capacities: Germany and South Korea. Here, we have seen approximately 0.2% during exponential growth.
+In order to compare different countries, I found it therefore reasonable to estimate the number of actual cases based on the _death rate_ that is found in the countries with the largest test capacities: Germany and South Korea. Here, we have seen approximately 0.2% during exponential growth.
 
-Note that this estimate only holds true during the exponential growth phase! This is because the death rate reflects the number people that died from infections that happened a few days earlier. To understand this, assume that the spread would suddenly stop and the number of infections would suddenly stay constant. The number of deaths would then still increase because people were already sick. Thus, 0.2% is not the true death rate of COVID-19 but only the fraction of the current number of deaths in relation to the currently registered cases during the exponential phase.
+**Note that this estimate only holds true during the exponential growth phase!** This is because the death rate reflects the number people that died from infections that happened a few days earlier. To understand this, assume that the spread would suddenly stop and the number of new infections would suddenly be zero. The number of deaths would then still increase because people were already sick. Thus, 0.2% is not the true death rate of COVID-19 but only the fraction of the current number of deaths in relation to the currently registered cases during the exponential phase.
 
 ### spread rate
 

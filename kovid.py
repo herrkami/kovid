@@ -199,7 +199,8 @@ def plot_confirmed(data, country_list, avg=5, date_lim=None, scale='log', foreca
         icus_per_capita = country_list[c][1]
 
         # 80% default occupation, 6% of Covid-19 patients require ICU treatment
-        icu_limit = 0.2*icus_per_capita/0.006
+        icu_rate = 0.06
+        icu_limit = 0.2*icus_per_capita/icu_rate
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -253,7 +254,8 @@ def plot_estimated_from_delay(data, country_list, avg=5, date_lim=None, scale='l
         icus_per_capita = country_list[c][1]
 
         # 80% default occupation, 6% of Covid-19 patients require ICU treatment
-        icu_limit = 0.2*icus_per_capita/0.01
+        icu_rate = 0.06
+        icu_limit = 0.2*icus_per_capita/icu_rate
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -310,8 +312,8 @@ def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None, scale='
         icus_per_capita = country_list[c][1]
 
         # 80% default occupation, 6% of Covid-19 patients require ICU treatment
-        death_rate = 0.002
-        icu_limit = 0.2*icus_per_capita/death_rate
+        icu_rate = 0.06
+        icu_limit = 0.2*icus_per_capita/icu_rate
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -321,6 +323,7 @@ def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None, scale='
         deaths = np.array(ts.Deaths)
 
         # 5 days incubation + 2 days test delay
+        death_rate = 0.002
         estimated = deaths/death_rate/nr_inhabitants
 
         # Extrapolate based on the last 7 days

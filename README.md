@@ -26,7 +26,7 @@ The dashed lines indicate **very rough estimates** of the ICU capacities for COV
 - https://link.springer.com/article/10.1007/s00134-012-2627-8
 - https://link.springer.com/article/10.1007/s00134-015-4165-7
 
-In addition it get's multiplied by 0.2. This is probably too high for countries like Germany because they can increase their ICU capacity easily by shifting non-urgent operations. On the other hand, it is probably too high for countries like the UK because their ICU rate is already only one fifth of the German capacity, so less operations can be shifted easily.
+In addition, an assumed absolute minimum ICU capacity for non-Corona patients of 3.5 ICUs per 100000 gets subtracted.  This is an arbitrary number that seems somehow reasonable to me given that some countries can maintain a good-ish health system with only 4.5 ICUs per 100000 (e.g. Japan, Portugal). 
 
 ### estimated cases per capita based on the deaths per capita
 

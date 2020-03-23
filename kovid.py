@@ -123,6 +123,20 @@ def get_spread_rate_by_country(country, data):
     ts['Date'] = pd.to_datetime(date)
     return ts
 
+def get_new_infections_by_country(country, data):
+    data_country = data[data['Country/Region'] == country]
+    # Make sure, it's sorted
+    data_country = data_country.sort_values('Date')
+    confirmed = np.array(data_country.Confirmed)
+    date = np.array(data_country.Date)
+    infections = confirmed[1:] - confirmed[:-1]
+    date = date[:-1]
+    ts = pd.DataFrame()
+    ts['New Infections'] = infections
+    ts['Date'] = date
+    ts['Date'] = pd.to_datetime(date)
+    return ts
+
 def get_confirmed_by_country(country, data):
     data_country = data[data['Country/Region'] == country]
     # Make sure, it's sorted
@@ -188,6 +202,61 @@ def plot_spread_rate(data, country_list, avg=5, date_lim=None):
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
 
+def plot_new_infected(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
+    fig = plt.figure()
+    ax = fig.add_subplot()
+
+    for c in country_list.keys():
+        ts = get_new_infections_by_country(c, data)
+
+        nr_inhabitants = country_list[c][0]
+        icus_per_capita = country_list[c][1]
+
+        # 6% of Covid-19 patients require ICU treatment for one week on average
+        icu_rate = 0.06
+        icu_time = 7  # days
+        icu_limit = icus_per_capita/icu_rate/icu_time
+
+        # Derive date limits if none are given
+        if date_lim is None:
+            date_lim = [np.min(ts.Date), np.max(ts.Date) + pd.Timedelta(forecast, unit='d')]
+
+        infected = np.array(ts["New Infections"])/nr_inhabitants
+
+        # Extrapolate based on the last 7 days
+        _f = log_extrapol(np.arange(ext_base), infected[-ext_base:])
+        f = lambda d: _f(d.days)
+        # print(max(ts.Date) - pd.Timedelta(ext_base, unit='d'))
+        ext_range = pd.date_range(max(ts.Date) - pd.Timedelta(ext_base, unit='d'),
+                                  max(ts.Date) + pd.Timedelta(forecast, unit='d'))
+
+        if len(country_list) == 1:
+            pl, = ax.plot(ts.Date, infected, color='black', alpha=.9, label=c)
+        else:
+            pl, = ax.plot(ts.Date, infected, alpha=.9, label=c)
+        ax.plot(ext_range,
+                f(ext_range - max(ts.Date) + pd.Timedelta(ext_base-1, unit='d')),
+                '-',
+                color=pl.get_color(),
+                alpha=.3)
+        ax.plot(date_lim, 2*[icu_limit], '--', color=pl.get_color(), alpha=.9)
+
+    ax.tick_params(axis='x', rotation=60)
+    ax.set_xlim(date_lim)
+    # ax.set_ylim([1e-8, 1e-1])
+    ax.grid(True)
+    if scale == 'log':
+        ax.set_yscale('log')
+    if len(country_list) == 1:
+        ax.set_ylabel('new infections per capita ({})'.format(country_list[0]))
+        fname = '{}_new_infections.png'.format(country_list[0].replace(' ', '_').lower())
+    else:
+        ax.set_ylabel('new infections per capita')
+        fname = '{}_new_infections.png'.format('countries')
+        ax.legend()
+    plt.savefig('png/'+fname, bbox_inches='tight')
+    plt.close()
+
 def plot_confirmed(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
     fig = plt.figure()
     ax = fig.add_subplot()
@@ -200,7 +269,7 @@ def plot_confirmed(data, country_list, avg=5, date_lim=None, scale='log', foreca
 
         # 80% default occupation, 6% of Covid-19 patients require ICU treatment
         icu_rate = 0.06
-        icu_limit = 0.2*icus_per_capita/icu_rate
+        icu_limit = icus_per_capita/icu_rate
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -255,7 +324,7 @@ def plot_estimated_from_delay(data, country_list, avg=5, date_lim=None, scale='l
 
         # 80% default occupation, 6% of Covid-19 patients require ICU treatment
         icu_rate = 0.06
-        icu_limit = 0.2*icus_per_capita/icu_rate
+        icu_limit = icus_per_capita/icu_rate
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -313,7 +382,7 @@ def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None, scale='
 
         # 80% default occupation, 6% of Covid-19 patients require ICU treatment
         icu_rate = 0.06
-        icu_limit = 0.2*icus_per_capita/icu_rate
+        icu_limit = icus_per_capita/icu_rate
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -411,6 +480,7 @@ if __name__ == '__main__':
 
     # https://link.springer.com/article/10.1007/s00134-012-2627-8
     # https://link.springer.com/article/10.1007/s00134-015-4165-7
+    # https://en.wikipedia.org/wiki/List_of_countries_by_hospital_beds#Numbers
     country_list = {'Germany': [82.79e6, 29.2/100000],
                     'US': [327.2e6, 34.2/100000],
                     'Italy': [60.48e6, 12.5/100000],
@@ -427,11 +497,19 @@ if __name__ == '__main__':
                     # 'China': [1386e6, 3.6/100000],
                     }
 
-    # sbn.set_palette(sbn.color_palette(palette="pastel", n_colors=len(country_list), desat=None))
+    # Derive the COVID ICU capacities assuming a minimum of 3.5 ICUs per 100000
+    # for regular hospital cases and all other ICUs available for corona
+    # patients. This is an arbitrary number that seems somehow reasonable to me
+    # given that some contries can maintain a good-ish health system with only
+    # 4.5 ICUs per 100000 (e.g. Japan, Portugal)
+    for c in country_list.keys():
+        country_list[c][1] -= 3.5/100000
+
     sbn.set_style("whitegrid")
     sbn.set_palette(sbn.color_palette(palette="colorblind", n_colors=len(country_list), desat=1))
 
     # Cases
+    plot_new_infected(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
     plot_confirmed(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
     plot_estimated_from_deaths(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
     # plot_estimated_from_delay(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
@@ -440,8 +518,8 @@ if __name__ == '__main__':
     # Rates
     date_lim = pd.to_datetime([pd.Timestamp('2020-02-15'), pd.Timestamp(np.max(np.array(data.Date)))])
     country_list_rates = { c: country_list[c] for c in ['Germany',
-                                                    'US',
-                                                    'South Korea',
-                                                    'Italy',
-                                                    ]}
+                                                        'US',
+                                                        'South Korea',
+                                                        'Italy',
+                                                        ]}
     plot_spread_rate(data, country_list_rates, avg=3, date_lim=date_lim)

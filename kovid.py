@@ -55,6 +55,50 @@ def get_date_list(report_list):
         dates.append('{}-{}-{}'.format(yea, mon, day))
     return dates
 
+def get_dataframe_from_csv_file(path, date, no_provinces=True):
+    report = pd.read_csv(path, delimiter=',')
+    # Fix inconsistency that has been introduced on March 23
+    try:
+        report.rename(columns={'Country_Region':'Country/Region'}, inplace=True)
+        report.rename(columns={'Province_State':'Province/State'}, inplace=True)
+    except:
+        pass
+
+    # United Kingdom is UK
+    report.loc[report['Country/Region'] == 'United Kingdom', 'Country/Region'] = 'UK'
+
+    # Mainland China is China
+    report.loc[report['Country/Region'] == 'Mainland China', 'Country/Region'] = 'China'
+
+    # Korea, South is South Korea
+    report.loc[report['Country/Region'] == 'Korea, South', 'Country/Region'] = 'South Korea'
+
+    # Sum over all provinces that belong to a country/region
+    for c in report['Country/Region'].unique():
+        provinces = report[report['Country/Region']==c]['Province/State'].unique()
+        if any(pd.isna(provinces)):
+            # There is one entry for the whole country without a specific province
+            pass
+        else:
+            # There is no entry for the entire country, we have to sum over all provinces
+            report = report.append(pd.DataFrame(
+                {'Country/Region': c,
+                 'Province/State': np.nan,
+                 'Confirmed': report[report['Country/Region']==c]['Confirmed'].sum(),
+                 'Deaths': report[report['Country/Region']==c]['Deaths'].sum(),
+                 'Recovered': report[report['Country/Region']==c]['Recovered'].sum(),
+                }, index=[0]),
+                ignore_index=False)
+
+    # Remove the provice data
+    if no_provinces:
+        report = report[pd.isna(report['Province/State'])]
+
+    # Add date and append
+    report['Date'] = [date for i in range(len(report))]
+    return report
+
+
 def get_data(path_name, no_provinces=True):
     # Get a file list of daily reports
     report_names = get_report_list(path_name)
@@ -65,47 +109,7 @@ def get_data(path_name, no_provinces=True):
     for d, rn in zip(dates, report_names):
         # print(d)
         # Read report
-        report = pd.read_csv(path_name+rn, delimiter=',')
-
-        # Fix inconsistency that has been introduced on March 23
-        try:
-            report.rename(columns={'Country_Region':'Country/Region'}, inplace=True)
-            report.rename(columns={'Province_State':'Province/State'}, inplace=True)
-        except:
-            pass
-
-        # United Kingdom is UK
-        report.loc[report['Country/Region'] == 'United Kingdom', 'Country/Region'] = 'UK'
-
-        # Mainland China is China
-        report.loc[report['Country/Region'] == 'Mainland China', 'Country/Region'] = 'China'
-
-        # Korea, South is South Korea
-        report.loc[report['Country/Region'] == 'Korea, South', 'Country/Region'] = 'South Korea'
-
-        # Sum over all provinces that belong to a country/region
-        for c in report['Country/Region'].unique():
-            provinces = report[report['Country/Region']==c]['Province/State'].unique()
-            if any(pd.isna(provinces)):
-                # There is one entry for the whole country without a specific province
-                pass
-            else:
-                # There is no entry for the entire country, we have to sum over all provinces
-                report = report.append(pd.DataFrame(
-                    {'Country/Region': c,
-                     'Province/State': np.nan,
-                     'Confirmed': report[report['Country/Region']==c]['Confirmed'].sum(),
-                     'Deaths': report[report['Country/Region']==c]['Deaths'].sum(),
-                     'Recovered': report[report['Country/Region']==c]['Recovered'].sum(),
-                    }, index=[0]),
-                    ignore_index=False)
-
-        # Remove the provice data
-        if no_provinces:
-            report = report[pd.isna(report['Province/State'])]
-
-        # Add date and append
-        report['Date'] = [d for i in range(len(report))]
+        report = get_dataframe_from_csv_file(path_name+rn, d, no_provinces)
         data.append(report)
 
     # Concatenate to one dataframe

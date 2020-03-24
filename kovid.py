@@ -238,6 +238,7 @@ def plot_spread_rate(data, country_list, avg=5, date_lim=None):
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
 
+
 def plot_new_infected(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
     fig = plt.figure()
     ax = fig.add_subplot()
@@ -246,12 +247,10 @@ def plot_new_infected(data, country_list, avg=5, date_lim=None, scale='log', for
         ts = get_new_infections_by_country(c, data)
 
         nr_inhabitants = country_list[c][0]
-        icus_per_capita = country_list[c][1]
 
-        # 6% of Covid-19 patients require ICU treatment for one week on average
-        icu_rate = 0.06
         icu_time = 7  # days
-        icu_limit = icus_per_capita/icu_rate/icu_time
+        icu_limit = get_icu_limit(icus_per_capita=country_list[c][1],
+                                  duration_of_stay=icu_time)
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -293,6 +292,7 @@ def plot_new_infected(data, country_list, avg=5, date_lim=None, scale='log', for
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
 
+
 def plot_confirmed(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
     fig = plt.figure()
     ax = fig.add_subplot()
@@ -301,11 +301,8 @@ def plot_confirmed(data, country_list, avg=5, date_lim=None, scale='log', foreca
         ts = get_confirmed_by_country(c, data)
 
         nr_inhabitants = country_list[c][0]
-        icus_per_capita = country_list[c][1]
 
-        # 80% default occupation, 6% of Covid-19 patients require ICU treatment
-        icu_rate = 0.06
-        icu_limit = icus_per_capita/icu_rate
+        icu_limit = get_icu_limit(icus_per_capita=country_list[c][1])
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -348,6 +345,7 @@ def plot_confirmed(data, country_list, avg=5, date_lim=None, scale='log', foreca
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
 
+
 def plot_estimated_from_delay(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
     fig = plt.figure()
     ax = fig.add_subplot()
@@ -356,11 +354,8 @@ def plot_estimated_from_delay(data, country_list, avg=5, date_lim=None, scale='l
         ts = get_confirmed_by_country(c, data)
 
         nr_inhabitants = country_list[c][0]
-        icus_per_capita = country_list[c][1]
 
-        # 80% default occupation, 6% of Covid-19 patients require ICU treatment
-        icu_rate = 0.06
-        icu_limit = icus_per_capita/icu_rate
+        icu_limit = get_icu_limit(icus_per_capita=country_list[c][1])
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -406,7 +401,9 @@ def plot_estimated_from_delay(data, country_list, avg=5, date_lim=None, scale='l
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
 
-def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
+
+def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None,
+                               scale='log', forecast=21, ext_base=7):
     fig = plt.figure()
     ax = fig.add_subplot()
 
@@ -414,11 +411,8 @@ def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None, scale='
         ts = get_deaths_by_country(c, data)
 
         nr_inhabitants = country_list[c][0]
-        icus_per_capita = country_list[c][1]
 
-        # 80% default occupation, 6% of Covid-19 patients require ICU treatment
-        icu_rate = 0.06
-        icu_limit = icus_per_capita/icu_rate
+        icu_limit = get_icu_limit(icus_per_capita=country_list[c][1])
 
         # Derive date limits if none are given
         if date_lim is None:

@@ -55,6 +55,50 @@ def get_date_list(report_list):
         dates.append('{}-{}-{}'.format(yea, mon, day))
     return dates
 
+def get_dataframe_from_csv_file(path, date, no_provinces=True):
+    report = pd.read_csv(path, delimiter=',')
+    # Fix inconsistency that has been introduced on March 23
+    try:
+        report.rename(columns={'Country_Region':'Country/Region'}, inplace=True)
+        report.rename(columns={'Province_State':'Province/State'}, inplace=True)
+    except:
+        pass
+
+    # United Kingdom is UK
+    report.loc[report['Country/Region'] == 'United Kingdom', 'Country/Region'] = 'UK'
+
+    # Mainland China is China
+    report.loc[report['Country/Region'] == 'Mainland China', 'Country/Region'] = 'China'
+
+    # Korea, South is South Korea
+    report.loc[report['Country/Region'] == 'Korea, South', 'Country/Region'] = 'South Korea'
+
+    # Sum over all provinces that belong to a country/region
+    for c in report['Country/Region'].unique():
+        provinces = report[report['Country/Region']==c]['Province/State'].unique()
+        if any(pd.isna(provinces)):
+            # There is one entry for the whole country without a specific province
+            pass
+        else:
+            # There is no entry for the entire country, we have to sum over all provinces
+            report = report.append(pd.DataFrame(
+                {'Country/Region': c,
+                 'Province/State': np.nan,
+                 'Confirmed': report[report['Country/Region']==c]['Confirmed'].sum(),
+                 'Deaths': report[report['Country/Region']==c]['Deaths'].sum(),
+                 'Recovered': report[report['Country/Region']==c]['Recovered'].sum(),
+                }, index=[0]),
+                ignore_index=False)
+
+    # Remove the provice data
+    if no_provinces:
+        report = report[pd.isna(report['Province/State'])]
+
+    # Add date and append
+    report['Date'] = [date for i in range(len(report))]
+    return report
+
+
 def get_data(path_name, no_provinces=True):
     # Get a file list of daily reports
     report_names = get_report_list(path_name)
@@ -65,47 +109,7 @@ def get_data(path_name, no_provinces=True):
     for d, rn in zip(dates, report_names):
         # print(d)
         # Read report
-        report = pd.read_csv(path_name+rn, delimiter=',')
-
-        # Fix inconsistency that has been introduced on March 23
-        try:
-            report.rename(columns={'Country_Region':'Country/Region'}, inplace=True)
-            report.rename(columns={'Province_State':'Province/State'}, inplace=True)
-        except:
-            pass
-
-        # United Kingdom is UK
-        report.loc[report['Country/Region'] == 'United Kingdom', 'Country/Region'] = 'UK'
-
-        # Mainland China is China
-        report.loc[report['Country/Region'] == 'Mainland China', 'Country/Region'] = 'China'
-
-        # Korea, South is South Korea
-        report.loc[report['Country/Region'] == 'Korea, South', 'Country/Region'] = 'South Korea'
-
-        # Sum over all provinces that belong to a country/region
-        for c in report['Country/Region'].unique():
-            provinces = report[report['Country/Region']==c]['Province/State'].unique()
-            if any(pd.isna(provinces)):
-                # There is one entry for the whole country without a specific province
-                pass
-            else:
-                # There is no entry for the entire country, we have to sum over all provinces
-                report = report.append(pd.DataFrame(
-                    {'Country/Region': c,
-                     'Province/State': np.nan,
-                     'Confirmed': report[report['Country/Region']==c]['Confirmed'].sum(),
-                     'Deaths': report[report['Country/Region']==c]['Deaths'].sum(),
-                     'Recovered': report[report['Country/Region']==c]['Recovered'].sum(),
-                    }, index=[0]),
-                    ignore_index=False)
-
-        # Remove the provice data
-        if no_provinces:
-            report = report[pd.isna(report['Province/State'])]
-
-        # Add date and append
-        report['Date'] = [d for i in range(len(report))]
+        report = get_dataframe_from_csv_file(path_name+rn, d, no_provinces)
         data.append(report)
 
     # Concatenate to one dataframe
@@ -175,6 +179,31 @@ def get_deaths_by_country(country, data):
     return ts
 
 
+def get_icu_limit(icus_per_capita: float, icu_rate: float=0.06,
+                  duration_of_stay=None):
+    """
+    For now we assume that all ICUs are available and none can be created.
+    Either change should not result in significant error factors
+
+    Input:
+        icus_per_capita     float   total number of ICU beds per capita
+        icu_rate            float   fraction of cases to require ICU treatment
+        duration_of_stay    float   average number of days for a person to
+                                    stay in an ICU. If None returns the
+                                    cumulative capacity
+    """
+    if duration_of_stay is None:
+        # In case of None we are calculating the total capacity, not the
+        # per day capacity. This changes the _unit_ of the result, but the
+        # correct value is 1.
+        duration_of_stay = 1
+
+
+    icu_limit = icus_per_capita/icu_rate/duration_of_stay
+
+    return icu_limit
+
+
 def plot_spread_rate(data, country_list, avg=5, date_lim=None):
     fig = plt.figure()
     ax = fig.add_subplot()
@@ -209,6 +238,7 @@ def plot_spread_rate(data, country_list, avg=5, date_lim=None):
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
 
+
 def plot_new_infected(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
     fig = plt.figure()
     ax = fig.add_subplot()
@@ -217,12 +247,10 @@ def plot_new_infected(data, country_list, avg=5, date_lim=None, scale='log', for
         ts = get_new_infections_by_country(c, data)
 
         nr_inhabitants = country_list[c][0]
-        icus_per_capita = country_list[c][1]
 
-        # 6% of Covid-19 patients require ICU treatment for one week on average
-        icu_rate = 0.06
         icu_time = 7  # days
-        icu_limit = icus_per_capita/icu_rate/icu_time
+        icu_limit = get_icu_limit(icus_per_capita=country_list[c][1],
+                                  duration_of_stay=icu_time)
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -264,6 +292,7 @@ def plot_new_infected(data, country_list, avg=5, date_lim=None, scale='log', for
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
 
+
 def plot_confirmed(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
     fig = plt.figure()
     ax = fig.add_subplot()
@@ -272,11 +301,8 @@ def plot_confirmed(data, country_list, avg=5, date_lim=None, scale='log', foreca
         ts = get_confirmed_by_country(c, data)
 
         nr_inhabitants = country_list[c][0]
-        icus_per_capita = country_list[c][1]
 
-        # 80% default occupation, 6% of Covid-19 patients require ICU treatment
-        icu_rate = 0.06
-        icu_limit = icus_per_capita/icu_rate
+        icu_limit = get_icu_limit(icus_per_capita=country_list[c][1])
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -319,6 +345,7 @@ def plot_confirmed(data, country_list, avg=5, date_lim=None, scale='log', foreca
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
 
+
 def plot_estimated_from_delay(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
     fig = plt.figure()
     ax = fig.add_subplot()
@@ -327,11 +354,8 @@ def plot_estimated_from_delay(data, country_list, avg=5, date_lim=None, scale='l
         ts = get_confirmed_by_country(c, data)
 
         nr_inhabitants = country_list[c][0]
-        icus_per_capita = country_list[c][1]
 
-        # 80% default occupation, 6% of Covid-19 patients require ICU treatment
-        icu_rate = 0.06
-        icu_limit = icus_per_capita/icu_rate
+        icu_limit = get_icu_limit(icus_per_capita=country_list[c][1])
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -377,7 +401,9 @@ def plot_estimated_from_delay(data, country_list, avg=5, date_lim=None, scale='l
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
 
-def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
+
+def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None,
+                               scale='log', forecast=21, ext_base=7):
     fig = plt.figure()
     ax = fig.add_subplot()
 
@@ -385,11 +411,8 @@ def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None, scale='
         ts = get_deaths_by_country(c, data)
 
         nr_inhabitants = country_list[c][0]
-        icus_per_capita = country_list[c][1]
 
-        # 80% default occupation, 6% of Covid-19 patients require ICU treatment
-        icu_rate = 0.06
-        icu_limit = icus_per_capita/icu_rate
+        icu_limit = get_icu_limit(icus_per_capita=country_list[c][1])
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -436,6 +459,54 @@ def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None, scale='
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
 
+
+def plot_deathrate(data, country_list, avg=5, date_lim=None, scale='log'):
+    fig = plt.figure()
+    ax = fig.add_subplot()
+
+    for c in country_list.keys():
+        ts = get_deaths_by_country(c, data)
+
+        nr_inhabitants = country_list[c][0]
+
+        # total ICU rate is 0.06 of all cases, we want to
+        # compare with the death rate, which is 0.01, so
+        # for every dead we should have 6 ICU bed required
+        icu_limit_in_deaths = get_icu_limit(icus_per_capita=country_list[c][1],
+                                            icu_rate=6.,
+                                            duration_of_stay=7)
+
+        # Derive date limits if none are given
+        if date_lim is None:
+            date_lim = [np.min(ts.Date), np.max(ts.Date)]
+
+        # Derive averaged time series
+        deaths = np.array(ts.Deaths)
+        deaths_per_day = deaths[1:] - deaths[:-1]
+        # drop last day; arguably we should drop the first one, but this
+        # is consistent with the other functions
+        dates = np.array(ts.Date)[:-1]
+
+        pl, = ax.plot(dates, deaths_per_day/nr_inhabitants, alpha=.9, label=c)
+        ax.plot(date_lim, 2*[icu_limit_in_deaths],
+                '--', color=pl.get_color(), alpha=.9)
+
+    ax.tick_params(axis='x', rotation=60)
+    ax.set_xlim(date_lim)
+    # ax.set_ylim([1e-9, 1e-1])
+    if scale == 'log':
+        ax.set_yscale('log')
+    if len(country_list) == 1:
+        ax.set_ylabel('deathrate per capita ({})'.format(country_list[0]))
+        fname = '{}_deathrate.png'.format(country_list[0].replace(' ', '_').lower())
+    else:
+        ax.set_ylabel('deathrate per capita')
+        fname = 'countries_deathrate.png'
+        ax.legend()
+    plt.savefig('png/'+fname, bbox_inches='tight')
+    plt.close()
+
+
 def plot_deaths(data, country_list, avg=5, date_lim=None, scale='log'):
     fig = plt.figure()
     ax = fig.add_subplot()
@@ -473,60 +544,75 @@ def plot_deaths(data, country_list, avg=5, date_lim=None, scale='log'):
     plt.close()
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--data', action='store_true',
+                        help='Generate data.csv')
+    parser.add_argument('-p', '--plot', action='store_true',
+                        help='Generate all the plots')
+
+    args = parser.parse_args()
     # sbn.set_palette("Set1", 8, .75)
     # Load or generate data set
-    try:
-        data = pd.read_csv('data.csv')
-    except FileNotFoundError:
+    if args.data:
         data = get_data(PATH_DAILY_REPORTS)
         data.to_csv('data.csv')
+    else:
+        try:
+            data = pd.read_csv('data.csv')
+        except FileNotFoundError:
+            raise ValueError("Did not find data.csv, run 'kovid.py --data' first")
     print("Last data is from {}".format(np.max(data['Date'])))
-    extrapolation_base = 6
-    forecast = 21
-    date_lim = pd.to_datetime([pd.Timestamp('2020-02-15'), pd.Timestamp(np.max(np.array(data.Date))) + pd.Timedelta(forecast, unit='d')])
 
-    # https://link.springer.com/article/10.1007/s00134-012-2627-8
-    # https://link.springer.com/article/10.1007/s00134-015-4165-7
-    # https://en.wikipedia.org/wiki/List_of_countries_by_hospital_beds#Numbers
-    country_list = {'Germany': [82.79e6, 29.2/100000],
-                    'US': [327.2e6, 34.2/100000],
-                    'Italy': [60.48e6, 12.5/100000],
-                    'France': [66.99e6, 11.6/100000],
-                    'Spain': [46.66e6, 9.7/100000],
-                    'UK': [66.44e6, 6.6/100000],
-                    'Switzerland': [8.57e6, 11.0/100000],
-                    'Austria': [8.822e6, 21.8/100000],
-                    # 'Sweden': [10.12e6, 5.8/100000],
-                    # 'Denmark': [5.603e6, 6.7/100000],
-                    # 'Norway': [5.368e6, 8.0/100000],
-                    'South Korea': [51.47e6, 10.6/100000],
-                    'Japan': [126.8e6, 4.5/100000]
-                    # 'China': [1386e6, 3.6/100000],
-                    }
+    if args.plot:
+        extrapolation_base = 6
+        forecast = 21
+        date_lim = pd.to_datetime([pd.Timestamp('2020-02-15'), pd.Timestamp(np.max(np.array(data.Date))) + pd.Timedelta(forecast, unit='d')])
 
-    # Derive the COVID ICU capacities assuming a minimum of 3.5 ICUs per 100000
-    # for regular hospital cases and all other ICUs available for corona
-    # patients. This is an arbitrary number that seems somehow reasonable to me
-    # given that some contries can maintain a good-ish health system with only
-    # 4.5 ICUs per 100000 (e.g. Japan, Portugal)
-    for c in country_list.keys():
-        country_list[c][1] -= 3.5/100000
+        # https://link.springer.com/article/10.1007/s00134-012-2627-8
+        # https://link.springer.com/article/10.1007/s00134-015-4165-7
+        # https://en.wikipedia.org/wiki/List_of_countries_by_hospital_beds#Numbers
+        country_list = {'Germany': [82.79e6, 29.2/100000],
+                        'US': [327.2e6, 34.2/100000],
+                        'Italy': [60.48e6, 12.5/100000],
+                        'France': [66.99e6, 11.6/100000],
+                        'Spain': [46.66e6, 9.7/100000],
+                        'UK': [66.44e6, 6.6/100000],
+                        'Switzerland': [8.57e6, 11.0/100000],
+                        'Austria': [8.822e6, 21.8/100000],
+                        # 'Sweden': [10.12e6, 5.8/100000],
+                        # 'Denmark': [5.603e6, 6.7/100000],
+                        # 'Norway': [5.368e6, 8.0/100000],
+                        'South Korea': [51.47e6, 10.6/100000],
+                        'Japan': [126.8e6, 4.5/100000]
+                        # 'China': [1386e6, 3.6/100000],
+                        }
 
-    sbn.set_style("whitegrid")
-    sbn.set_palette(sbn.color_palette(palette="colorblind", n_colors=len(country_list), desat=1))
+        # Derive the COVID ICU capacities assuming a minimum of 3.5 ICUs per 100000
+        # for regular hospital cases and all other ICUs available for corona
+        # patients. This is an arbitrary number that seems somehow reasonable to me
+        # given that some contries can maintain a good-ish health system with only
+        # 4.5 ICUs per 100000 (e.g. Japan, Portugal)
+        for c in country_list.keys():
+            country_list[c][1] -= 3.5/100000
 
-    # Cases
-    plot_new_infected(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
-    plot_confirmed(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
-    plot_estimated_from_deaths(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
-    # plot_estimated_from_delay(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
-    # plot_deaths(data, country_list, avg=5, date_lim=date_lim)
+        sbn.set_style("whitegrid")
+        sbn.set_palette(sbn.color_palette(palette="colorblind", n_colors=len(country_list), desat=1))
 
-    # Rates
-    date_lim = pd.to_datetime([pd.Timestamp('2020-02-15'), pd.Timestamp(np.max(np.array(data.Date)))])
-    country_list_rates = { c: country_list[c] for c in ['Germany',
-                                                        'US',
-                                                        'South Korea',
-                                                        'Italy',
-                                                        ]}
-    plot_spread_rate(data, country_list_rates, avg=3, date_lim=date_lim)
+        # Cases
+        plot_new_infected(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
+        plot_confirmed(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
+        plot_estimated_from_deaths(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
+        # plot_estimated_from_delay(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
+        # plot_deaths(data, country_list, avg=5, date_lim=date_lim)
+        plot_deathrate(data, country_list, avg=5, date_lim=date_lim)
+
+        # Rates
+        date_lim = pd.to_datetime([pd.Timestamp('2020-02-15'), pd.Timestamp(np.max(np.array(data.Date)))])
+        country_list_rates = { c: country_list[c] for c in ['Germany',
+                                                            'US',
+                                                            'South Korea',
+                                                            'Italy',
+                                                            ]}
+        plot_spread_rate(data, country_list_rates, avg=3, date_lim=date_lim)

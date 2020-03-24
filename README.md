@@ -22,11 +22,16 @@ Three plots are generated:
 
 This is the number of registered confirmed cases divided by the population size. This number is suspected to lag around 7 - 9 days behind the actual infections because the average incubation period is 5 days and there is a 2 - 4 days delay for testing and registration. Since the growth rate for most countries with an exponential outbreak is currently around 30%, this number can be multiplied by approximately 10 to get an estimate of the actual number of currently infected people.
 
-The dashed lines indicate **very rough estimates** of the ICU capacities for COVID-19 patients in each country. E.g. Germany has 29.2 ICUs per 100,000 people with a default occupancy (i.e. non-Corona patients) of 80%. Therefore, these are only 0.2*29.2 = 5.84 ICUs for the Corona patients. Moreover, approximately 6% of the COVID-19 infected require ICU treatment. Thus, 0.097% of the population can maximally become sick simultaneously. Every country (that is cherry-picked in the `python` script) has an ICU capacity attached to it that I gathered from those two sources:
+The dashed lines indicate **very rough estimates** of the maximum ICU capacities for COVID-19 patients in each country. It is based on the country-specific default ICU capacities that are gathered from these sources:
 - https://link.springer.com/article/10.1007/s00134-012-2627-8
 - https://link.springer.com/article/10.1007/s00134-015-4165-7
+- https://en.wikipedia.org/wiki/List_of_countries_by_hospital_beds#Numbers
 
-In addition, an assumed absolute minimum ICU capacity for non-Corona patients of 3.5 ICUs per 100000 gets subtracted.  This is an arbitrary number that seems somehow reasonable to me given that some countries can maintain a good-ish health system with only 4.5 ICUs per 100000 (e.g. Japan, Portugal). 
+
+To get the COVID-19 capacities, an absolute minimum ICU capacity for non-Corona patients of 3.5 ICUs per 100,000 gets subtracted. This is a best-guess number that seems somehow reasonable to me since some countries can maintain a good-ish health system with only 4.5 ICUs per 100000 (e.g. Japan, Portugal).
+Moreover, approximately 6% of the known COVID-19 infected require ICU treatment.
+
+E.g. Germany has 29.2 ICUs per 100,000 people. Therefore, these are only 29.2 - 3.5 = 25.7 ICUs for the Corona patients. Thus, 25.7/100,000/0.06 ~ 0.4% of the population can maximally become sick simultaneously.
 
 ### estimated cases per capita based on the deaths per capita
 
@@ -46,3 +51,13 @@ In order to compare different countries, I found it therefore reasonable to esti
 ![](png/countries_rate.png)
 
 This is the number of newly registered infections divided by the number of confirmed infections from the day before. It contains less countries than the other plots for clearness.
+
+### daily infected
+
+![](png/countries_new_infections.png)
+
+This is the number of daily registered new infections divided by the population size. The dashed lines here indicate a health system capacity estimate based on
+- 6% ICU treatment rate for confirmed COVID-19 patients
+- 1 week ICU care for each of these patients
+- absolute minimum ICU capacity for non-COVID-19 patients of 3.5 ICUs/100,000 (see above)
+This plot is inspired by [this video by Harald Lesch](https://www.youtube.com/watch?v=Fx11Y4xjDwA).

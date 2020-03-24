@@ -67,6 +67,13 @@ def get_data(path_name, no_provinces=True):
         # Read report
         report = pd.read_csv(path_name+rn, delimiter=',')
 
+        # Fix inconsistency that has been introduced on March 23
+        try:
+            report.rename(columns={'Country_Region':'Country/Region'}, inplace=True)
+            report.rename(columns={'Province_State':'Province/State'}, inplace=True)
+        except:
+            pass
+
         # United Kingdom is UK
         report.loc[report['Country/Region'] == 'United Kingdom', 'Country/Region'] = 'UK'
 

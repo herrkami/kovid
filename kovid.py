@@ -179,6 +179,31 @@ def get_deaths_by_country(country, data):
     return ts
 
 
+def get_icu_limit(icus_per_capita: float, icu_rate: float=0.06,
+                  duration_of_stay=None):
+    """
+    For now we assume that all ICUs are available and none can be created.
+    Either change should not result in significant error factors
+
+    Input:
+        icus_per_capita     float   total number of ICU beds per capita
+        icu_rate            float   fraction of cases to require ICU treatment
+        duration_of_stay    float   average number of days for a person to
+                                    stay in an ICU. If None returns the
+                                    cumulative capacity
+    """
+    if duration_of_stay is None:
+        # In case of None we are calculating the total capacity, not the
+        # per day capacity. This changes the _unit_ of the result, but the
+        # correct value is 1.
+        duration_of_stay = 1
+
+
+    icu_limit = icus_per_capita/icu_rate/duration_of_stay
+
+    return icu_limit
+
+
 def plot_spread_rate(data, country_list, avg=5, date_lim=None):
     fig = plt.figure()
     ax = fig.add_subplot()
@@ -439,6 +464,54 @@ def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None, scale='
         ax.legend()
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
+
+
+def plot_deathrate(data, country_list, avg=5, date_lim=None, scale='log'):
+    fig = plt.figure()
+    ax = fig.add_subplot()
+
+    for c in country_list.keys():
+        ts = get_deaths_by_country(c, data)
+
+        nr_inhabitants = country_list[c][0]
+
+        # total ICU rate is 0.06 of all cases, we want to
+        # compare with the death rate, which is 0.01, so
+        # for every dead we should have 6 ICU bed required
+        icu_limit_in_deaths = get_icu_limit(icus_per_capita=country_list[c][1],
+                                            icu_rate=6.,
+                                            duration_of_stay=7)
+
+        # Derive date limits if none are given
+        if date_lim is None:
+            date_lim = [np.min(ts.Date), np.max(ts.Date)]
+
+        # Derive averaged time series
+        deaths = np.array(ts.Deaths)
+        deaths_per_day = deaths[1:] - deaths[:-1]
+        # drop last day; arguably we should drop the first one, but this
+        # is consistent with the other functions
+        dates = np.array(ts.Date)[:-1]
+
+        pl, = ax.plot(dates, deaths_per_day/nr_inhabitants, alpha=.9, label=c)
+        ax.plot(date_lim, 2*[icu_limit_in_deaths],
+                '--', color=pl.get_color(), alpha=.9)
+
+    ax.tick_params(axis='x', rotation=60)
+    ax.set_xlim(date_lim)
+    # ax.set_ylim([1e-9, 1e-1])
+    if scale == 'log':
+        ax.set_yscale('log')
+    if len(country_list) == 1:
+        ax.set_ylabel('deathrate per capita ({})'.format(country_list[0]))
+        fname = '{}_deathrate.png'.format(country_list[0].replace(' ', '_').lower())
+    else:
+        ax.set_ylabel('deathrate per capita')
+        fname = 'countries_deathrate.png'
+        ax.legend()
+    plt.savefig('png/'+fname, bbox_inches='tight')
+    plt.close()
+
 
 def plot_deaths(data, country_list, avg=5, date_lim=None, scale='log'):
     fig = plt.figure()

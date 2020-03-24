@@ -550,60 +550,75 @@ def plot_deaths(data, country_list, avg=5, date_lim=None, scale='log'):
     plt.close()
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--data', action='store_true',
+                        help='Generate data.csv')
+    parser.add_argument('-p', '--plot', action='store_true',
+                        help='Generate all the plots')
+
+    args = parser.parse_args()
     # sbn.set_palette("Set1", 8, .75)
     # Load or generate data set
-    try:
-        data = pd.read_csv('data.csv')
-    except FileNotFoundError:
+    if args.data:
         data = get_data(PATH_DAILY_REPORTS)
         data.to_csv('data.csv')
+    else:
+        try:
+            data = pd.read_csv('data.csv')
+        except FileNotFoundError:
+            raise ValueError("Did not find data.csv, run 'kovid.py --data' first")
     print("Last data is from {}".format(np.max(data['Date'])))
-    extrapolation_base = 6
-    forecast = 21
-    date_lim = pd.to_datetime([pd.Timestamp('2020-02-15'), pd.Timestamp(np.max(np.array(data.Date))) + pd.Timedelta(forecast, unit='d')])
 
-    # https://link.springer.com/article/10.1007/s00134-012-2627-8
-    # https://link.springer.com/article/10.1007/s00134-015-4165-7
-    # https://en.wikipedia.org/wiki/List_of_countries_by_hospital_beds#Numbers
-    country_list = {'Germany': [82.79e6, 29.2/100000],
-                    'US': [327.2e6, 34.2/100000],
-                    'Italy': [60.48e6, 12.5/100000],
-                    'France': [66.99e6, 11.6/100000],
-                    'Spain': [46.66e6, 9.7/100000],
-                    'UK': [66.44e6, 6.6/100000],
-                    'Switzerland': [8.57e6, 11.0/100000],
-                    'Austria': [8.822e6, 21.8/100000],
-                    # 'Sweden': [10.12e6, 5.8/100000],
-                    # 'Denmark': [5.603e6, 6.7/100000],
-                    # 'Norway': [5.368e6, 8.0/100000],
-                    'South Korea': [51.47e6, 10.6/100000],
-                    'Japan': [126.8e6, 4.5/100000]
-                    # 'China': [1386e6, 3.6/100000],
-                    }
+    if args.plot:
+        extrapolation_base = 6
+        forecast = 21
+        date_lim = pd.to_datetime([pd.Timestamp('2020-02-15'), pd.Timestamp(np.max(np.array(data.Date))) + pd.Timedelta(forecast, unit='d')])
 
-    # Derive the COVID ICU capacities assuming a minimum of 3.5 ICUs per 100000
-    # for regular hospital cases and all other ICUs available for corona
-    # patients. This is an arbitrary number that seems somehow reasonable to me
-    # given that some contries can maintain a good-ish health system with only
-    # 4.5 ICUs per 100000 (e.g. Japan, Portugal)
-    for c in country_list.keys():
-        country_list[c][1] -= 3.5/100000
+        # https://link.springer.com/article/10.1007/s00134-012-2627-8
+        # https://link.springer.com/article/10.1007/s00134-015-4165-7
+        # https://en.wikipedia.org/wiki/List_of_countries_by_hospital_beds#Numbers
+        country_list = {'Germany': [82.79e6, 29.2/100000],
+                        'US': [327.2e6, 34.2/100000],
+                        'Italy': [60.48e6, 12.5/100000],
+                        'France': [66.99e6, 11.6/100000],
+                        'Spain': [46.66e6, 9.7/100000],
+                        'UK': [66.44e6, 6.6/100000],
+                        'Switzerland': [8.57e6, 11.0/100000],
+                        'Austria': [8.822e6, 21.8/100000],
+                        # 'Sweden': [10.12e6, 5.8/100000],
+                        # 'Denmark': [5.603e6, 6.7/100000],
+                        # 'Norway': [5.368e6, 8.0/100000],
+                        'South Korea': [51.47e6, 10.6/100000],
+                        'Japan': [126.8e6, 4.5/100000]
+                        # 'China': [1386e6, 3.6/100000],
+                        }
 
-    sbn.set_style("whitegrid")
-    sbn.set_palette(sbn.color_palette(palette="colorblind", n_colors=len(country_list), desat=1))
+        # Derive the COVID ICU capacities assuming a minimum of 3.5 ICUs per 100000
+        # for regular hospital cases and all other ICUs available for corona
+        # patients. This is an arbitrary number that seems somehow reasonable to me
+        # given that some contries can maintain a good-ish health system with only
+        # 4.5 ICUs per 100000 (e.g. Japan, Portugal)
+        for c in country_list.keys():
+            country_list[c][1] -= 3.5/100000
 
-    # Cases
-    plot_new_infected(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
-    plot_confirmed(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
-    plot_estimated_from_deaths(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
-    # plot_estimated_from_delay(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
-    # plot_deaths(data, country_list, avg=5, date_lim=date_lim)
+        sbn.set_style("whitegrid")
+        sbn.set_palette(sbn.color_palette(palette="colorblind", n_colors=len(country_list), desat=1))
 
-    # Rates
-    date_lim = pd.to_datetime([pd.Timestamp('2020-02-15'), pd.Timestamp(np.max(np.array(data.Date)))])
-    country_list_rates = { c: country_list[c] for c in ['Germany',
-                                                        'US',
-                                                        'South Korea',
-                                                        'Italy',
-                                                        ]}
-    plot_spread_rate(data, country_list_rates, avg=3, date_lim=date_lim)
+        # Cases
+        plot_new_infected(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
+        plot_confirmed(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
+        plot_estimated_from_deaths(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
+        # plot_estimated_from_delay(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
+        # plot_deaths(data, country_list, avg=5, date_lim=date_lim)
+        plot_deathrate(data, country_list, avg=5, date_lim=date_lim)
+
+        # Rates
+        date_lim = pd.to_datetime([pd.Timestamp('2020-02-15'), pd.Timestamp(np.max(np.array(data.Date)))])
+        country_list_rates = { c: country_list[c] for c in ['Germany',
+                                                            'US',
+                                                            'South Korea',
+                                                            'Italy',
+                                                            ]}
+        plot_spread_rate(data, country_list_rates, avg=3, date_lim=date_lim)

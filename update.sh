@@ -19,4 +19,4 @@ rm -f png/*
 
 # Generate new data and plots
 echo "Calling python script to generate new data.csv and plots..."
-python kovid.py
+python kovid.py --data --plot

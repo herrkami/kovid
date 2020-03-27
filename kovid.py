@@ -243,14 +243,17 @@ def plot_new_infected(data, country_list, avg=5, date_lim=None, scale='log', for
     fig = plt.figure()
     ax = fig.add_subplot()
 
+    icu_limit_max = 0
+
     for c in country_list.keys():
         ts = get_new_infections_by_country(c, data)
 
         nr_inhabitants = country_list[c][0]
 
-        icu_time = 7  # days
+        icu_time = 18  # days
         icu_limit = get_icu_limit(icus_per_capita=country_list[c][1],
                                   duration_of_stay=icu_time)
+        icu_limit_max = icu_limit if icu_limit > icu_limit_max else icu_limit_max
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -282,6 +285,8 @@ def plot_new_infected(data, country_list, avg=5, date_lim=None, scale='log', for
     ax.grid(True)
     if scale == 'log':
         ax.set_yscale('log')
+    else:
+        ax.set_ylim([0, 1.3*icu_limit_max])
     if len(country_list) == 1:
         ax.set_ylabel('new infections per capita ({})'.format(country_list[0]))
         fname = '{}_new_infections.png'.format(country_list[0].replace(' ', '_').lower())
@@ -422,7 +427,7 @@ def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None,
         deaths = np.array(ts.Deaths)
 
         # 5 days incubation + 2 days test delay
-        death_rate = 0.002
+        death_rate = 0.006
         estimated = deaths/death_rate/nr_inhabitants
 
         # Extrapolate based on the last 7 days
@@ -474,7 +479,7 @@ def plot_deathrate(data, country_list, avg=5, date_lim=None, scale='log'):
         # for every dead we should have 6 ICU bed required
         icu_limit_in_deaths = get_icu_limit(icus_per_capita=country_list[c][1],
                                             icu_rate=6.,
-                                            duration_of_stay=7)
+                                            duration_of_stay=18)
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -601,7 +606,7 @@ if __name__ == '__main__':
         sbn.set_palette(sbn.color_palette(palette="colorblind", n_colors=len(country_list), desat=1))
 
         # Cases
-        plot_new_infected(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
+        plot_new_infected(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base, scale='log')
         plot_confirmed(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
         plot_estimated_from_deaths(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
         # plot_estimated_from_delay(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)

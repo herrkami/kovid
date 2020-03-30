@@ -548,6 +548,54 @@ def plot_deaths(data, country_list, avg=5, date_lim=None, scale='log'):
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
 
+
+def plot_fraction_tested_from_deaths(data, country_list, date_lim=None, mortality=0.015):
+    # we will be dividing by zero so suppress these warnings for this function
+    old_settings = np.seterr(divide='ignore')
+    fig = plt.figure()
+    ax = fig.add_subplot()
+
+    if len(country_list) > 1:
+        raise ValueError("The fraction_tested_from_deaths plot will be "
+                         "unreadable for multiple countries.")
+    for c in country_list.keys():
+        ts_deaths = get_deaths_by_country(c, data)
+        ts_confirmed = get_confirmed_by_country(c, data)
+
+        nr_inhabitants = country_list[c][0]
+
+        # Derive averaged time series
+        deaths = np.array(ts_deaths.Deaths)
+        confirmed = np.array(ts_confirmed.Confirmed)
+        dates = np.array(ts_deaths.Date)
+
+        offsets = [7 + 2*i for i in range(8)]
+        # we need to assume a case-mortality-rate, guess it to be at 1%
+        infections_from_death = deaths / mortality
+
+        for offset in offsets:
+            plot_dates = np.array(ts_deaths.Date[:-offset])
+            # avoiding division by zero warnings by using np.divide
+            plot_fraction = np.divide(confirmed[:-offset], infections_from_death[offset:])
+            ax.plot(plot_dates, plot_fraction, label=f'{offset}')
+
+    ax.axhline(1.0, color='black')
+    ax.legend(title='Days till death')
+    ax.tick_params(axis="x", rotation=60)
+    ax.set_ylim([0, 1.5])
+    if date_lim is not None:
+        ax.set_xlim(date_lim)
+    ax.set_ylabel("Fraction of detected cases")
+    ax.set_title(f"Country: {c}; start date limited by first death")
+
+    fname = '{}_detected_fraction.png'.format(c)
+    plt.savefig('png/'+fname, bbox_inches='tight')
+    plt.close()
+
+    # reset error handling
+    np.seterr(**old_settings)
+
+
 if __name__ == '__main__':
     import argparse
 
@@ -612,6 +660,10 @@ if __name__ == '__main__':
         # plot_estimated_from_delay(data, country_list, avg=5, date_lim=date_lim, forecast=forecast, ext_base=extrapolation_base)
         # plot_deaths(data, country_list, avg=5, date_lim=date_lim)
         plot_deathrate(data, country_list, avg=5, date_lim=date_lim)
+        for c in ['Germany', 'US', 'UK', 'Italy', 'Switzerland', "South Korea"]:
+            plot_fraction_tested_from_deaths(
+                data, {c: country_list[c]}
+            )
 
         # Rates
         date_lim = pd.to_datetime([pd.Timestamp('2020-02-15'), pd.Timestamp(np.max(np.array(data.Date)))])

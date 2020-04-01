@@ -134,6 +134,21 @@ def get_spread_rate_by_country(country, data):
     ts['Date'] = pd.to_datetime(date)
     return ts
 
+def get_infection_rate_by_country(country, data):
+    data_country = data[data['Country/Region'] == country]
+    # Make sure, it's sorted
+    data_country = data_country.sort_values('Date')
+    confirmed = np.array(data_country.Confirmed)
+    date = np.array(data_country.Date)
+    infections = confirmed[1:] - confirmed[:-1]
+    rate = infections[1:]/infections[:-1]
+    date = date[2:]
+    ts = pd.DataFrame()
+    ts['Rate'] = rate
+    ts['Date'] = date
+    ts['Date'] = pd.to_datetime(date)
+    return ts
+
 def get_new_infections_by_country(country, data):
     data_country = data[data['Country/Region'] == country]
     # Make sure, it's sorted
@@ -205,7 +220,7 @@ def get_icu_limit(icus_per_capita: float, icu_rate: float=0.06,
 
 
 def plot_spread_rate(data, country_list, avg=5, date_lim=None):
-    fig = plt.figure()
+    fig = plt.figure(figsize=(8, 5))
     ax = fig.add_subplot()
 
     for c in country_list:
@@ -220,10 +235,10 @@ def plot_spread_rate(data, country_list, avg=5, date_lim=None):
         rate_avg = moving_average(rate, avg)
 
         if len(country_list) == 1:
-            pl, = ax.plot(ts.Date, rate_avg, color='black', alpha=.3)
+            pl, = ax.plot(ts.Date, rate_avg, color='black', alpha=.9)
         else:
-            pl, = ax.plot(ts.Date, rate_avg, alpha=.3)
-        ax.plot(ts.Date, rate, color=pl.get_color(), alpha=0.9, label=c)
+            pl, = ax.plot(ts.Date, rate_avg, alpha=.9)
+        ax.plot(ts.Date, rate, color=pl.get_color(), alpha=0.3, label=c)
 
     ax.tick_params(axis='x', rotation=60)
     ax.set_xlim(date_lim)
@@ -238,9 +253,43 @@ def plot_spread_rate(data, country_list, avg=5, date_lim=None):
     plt.savefig('png/'+fname, bbox_inches='tight')
     plt.close()
 
+def plot_infection_rate(data, country_list, avg=5, date_lim=None):
+    fig = plt.figure(figsize=(8, 5))
+    ax = fig.add_subplot()
+
+    for c in country_list:
+        ts = get_infection_rate_by_country(c, data)
+
+        # Derive date limits if none are given
+        if date_lim is None:
+            date_lim = [np.min(ts.Date), np.max(ts.Date)]
+
+        # Derive averaged time series
+        rate = np.array(ts.Rate)
+        rate_avg = moving_average(rate, avg)
+
+        if len(country_list) == 1:
+            pl, = ax.plot(ts.Date, rate_avg, color='black', alpha=.9)
+        else:
+            pl, = ax.plot(ts.Date, rate_avg, alpha=.9)
+        ax.plot(ts.Date, rate, color=pl.get_color(), alpha=0.3, label=c)
+
+    ax.tick_params(axis='x', rotation=60)
+    ax.set_xlim(date_lim)
+    ax.set_ylim([0, 2])
+    if len(country_list) == 1:
+        c = [x for x in country_list.keys()]
+        fname = '{}_infection_rate.png'.format(c[0].replace(' ', '_').lower())
+    else:
+        fname = '{}_infection_rate.png'.format('countries')
+    ax.set_ylabel('relative new infections (and {} days average) [%]'.format(avg))
+    ax.legend()
+    plt.savefig('png/'+fname, bbox_inches='tight')
+    plt.close()
+
 
 def plot_new_infected(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
-    fig = plt.figure()
+    fig = plt.figure(figsize=(8, 5))
     ax = fig.add_subplot()
 
     icu_limit_max = 0
@@ -277,11 +326,11 @@ def plot_new_infected(data, country_list, avg=5, date_lim=None, scale='log', for
                 '-',
                 color=pl.get_color(),
                 alpha=.3)
-        ax.plot(date_lim, 2*[icu_limit], '--', color=pl.get_color(), alpha=.9)
+        ax.plot(date_lim, 2*[icu_limit], '--', color=pl.get_color(), alpha=.5)
 
     ax.tick_params(axis='x', rotation=60)
     ax.set_xlim(date_lim)
-    # ax.set_ylim([1e-8, 1e-1])
+    ax.set_ylim([1e-7, 1e-3])
     ax.grid(True)
     if scale == 'log':
         ax.set_yscale('log')
@@ -299,7 +348,7 @@ def plot_new_infected(data, country_list, avg=5, date_lim=None, scale='log', for
 
 
 def plot_confirmed(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
-    fig = plt.figure()
+    fig = plt.figure(figsize=(8, 5))
     ax = fig.add_subplot()
 
     for c in country_list.keys():
@@ -332,11 +381,11 @@ def plot_confirmed(data, country_list, avg=5, date_lim=None, scale='log', foreca
                 '-',
                 color=pl.get_color(),
                 alpha=.3)
-        ax.plot(date_lim, 2*[icu_limit], '--', color=pl.get_color(), alpha=.9)
+        ax.plot(date_lim, 2*[icu_limit], '--', color=pl.get_color(), alpha=.3)
 
     ax.tick_params(axis='x', rotation=60)
     ax.set_xlim(date_lim)
-    ax.set_ylim([1e-8, 1e-1])
+    ax.set_ylim([1e-6, 1e-1])
     ax.grid(True)
     if scale == 'log':
         ax.set_yscale('log')
@@ -352,7 +401,7 @@ def plot_confirmed(data, country_list, avg=5, date_lim=None, scale='log', foreca
 
 
 def plot_estimated_from_delay(data, country_list, avg=5, date_lim=None, scale='log', forecast=21, ext_base=7):
-    fig = plt.figure()
+    fig = plt.figure(figsize=(8, 5))
     ax = fig.add_subplot()
 
     for c in country_list.keys():
@@ -388,7 +437,7 @@ def plot_estimated_from_delay(data, country_list, avg=5, date_lim=None, scale='l
                 '-',
                 color=pl.get_color(),
                 alpha=.3)
-        ax.plot(date_lim, 2*[icu_limit], '--', color=pl.get_color(), alpha=.9)
+        ax.plot(date_lim, 2*[icu_limit], '--', color=pl.get_color(), alpha=.3)
 
     ax.tick_params(axis='x', rotation=60)
     ax.set_xlim(date_lim)
@@ -409,7 +458,7 @@ def plot_estimated_from_delay(data, country_list, avg=5, date_lim=None, scale='l
 
 def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None,
                                scale='log', forecast=21, ext_base=7):
-    fig = plt.figure()
+    fig = plt.figure(figsize=(8, 5))
     ax = fig.add_subplot()
 
     for c in country_list.keys():
@@ -446,7 +495,7 @@ def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None,
                 '-',
                 color=pl.get_color(),
                 alpha=.3)
-        ax.plot(date_lim, 2*[icu_limit], '--', color=pl.get_color(), alpha=.9)
+        ax.plot(date_lim, 2*[icu_limit], '--', color=pl.get_color(), alpha=.3)
 
     ax.tick_params(axis='x', rotation=60)
     ax.set_xlim(date_lim)
@@ -466,7 +515,7 @@ def plot_estimated_from_deaths(data, country_list, avg=5, date_lim=None,
 
 
 def plot_deathrate(data, country_list, avg=5, date_lim=None, scale='log'):
-    fig = plt.figure()
+    fig = plt.figure(figsize=(8, 5))
     ax = fig.add_subplot()
 
     for c in country_list.keys():
@@ -494,7 +543,7 @@ def plot_deathrate(data, country_list, avg=5, date_lim=None, scale='log'):
 
         pl, = ax.plot(dates, deaths_per_day/nr_inhabitants, alpha=.9, label=c)
         ax.plot(date_lim, 2*[icu_limit_in_deaths],
-                '--', color=pl.get_color(), alpha=.9)
+                '--', color=pl.get_color(), alpha=.3)
 
     ax.tick_params(axis='x', rotation=60)
     ax.set_xlim(date_lim)
@@ -513,7 +562,7 @@ def plot_deathrate(data, country_list, avg=5, date_lim=None, scale='log'):
 
 
 def plot_deaths(data, country_list, avg=5, date_lim=None, scale='log'):
-    fig = plt.figure()
+    fig = plt.figure(figsize=(8, 5))
     ax = fig.add_subplot()
 
     for c in country_list.keys():
@@ -572,7 +621,7 @@ if __name__ == '__main__':
 
     if args.plot:
         extrapolation_base = 6
-        forecast = 21
+        forecast = 14
         date_lim = pd.to_datetime([pd.Timestamp('2020-02-15'), pd.Timestamp(np.max(np.array(data.Date))) + pd.Timedelta(forecast, unit='d')])
 
         # https://link.springer.com/article/10.1007/s00134-012-2627-8
@@ -619,5 +668,9 @@ if __name__ == '__main__':
                                                             'US',
                                                             'South Korea',
                                                             'Italy',
+                                                            # 'Austria',
                                                             ]}
         plot_spread_rate(data, country_list_rates, avg=3, date_lim=date_lim)
+
+        date_lim = pd.to_datetime([pd.Timestamp('2020-03-01'), pd.Timestamp(np.max(np.array(data.Date)))])
+        plot_infection_rate(data, country_list_rates, avg=5, date_lim=date_lim)

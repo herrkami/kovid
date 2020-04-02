@@ -3,6 +3,7 @@ import numpy as np
 import scipy as sp
 import scipy.interpolate
 import matplotlib.pyplot as plt
+from matplotlib.ticker import ScalarFormatter
 import seaborn as sbn
 from os import listdir
 from os.path import isfile, join
@@ -327,7 +328,7 @@ def plot_new_infected(
         nr_inhabitants = country_list[c][0]
 
         icu_time = 18  # days
-        icu_limit = get_icu_limit(
+        icu_limit = 1e6*get_icu_limit(
             icus_per_capita=country_list[c][1], duration_of_stay=icu_time
         )
         icu_limit_max = icu_limit if icu_limit > icu_limit_max else icu_limit_max
@@ -339,7 +340,7 @@ def plot_new_infected(
                 np.max(ts.Date) + pd.Timedelta(forecast, unit="d"),
             ]
 
-        infected = np.array(ts["New Infections"]) / nr_inhabitants
+        infected = 1e6*np.array(ts["New Infections"]) / nr_inhabitants
 
         # Extrapolate based on the last 7 days
         _f = log_extrapol(np.arange(ext_base), infected[-ext_base:])
@@ -362,20 +363,22 @@ def plot_new_infected(
         ax.plot(date_lim, 2*[icu_limit], "--", color=pl.get_color(), alpha=0.5)
 
     ax.tick_params(axis="x", rotation=60)
+    # ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax.set_xlim(date_lim)
-    ax.set_ylim([1e-7, 1e-3])
+    ax.set_ylim([1e0, 1e3])
     ax.grid(True)
     if scale == "log":
         ax.set_yscale("log")
     else:
         ax.set_ylim([0, 1.3 * icu_limit_max])
+    ax.yaxis.set_major_formatter(ScalarFormatter())
     if len(country_list) == 1:
-        ax.set_ylabel("new infections per capita ({})".format(country_list[0]))
+        ax.set_ylabel("new infections per 1,000,000 capita ({})".format(country_list[0]))
         fname = "{}_new_infections.png".format(
             country_list[0].replace(" ", "_").lower()
         )
     else:
-        ax.set_ylabel("new infections per capita")
+        ax.set_ylabel("new infections per 1,000,000 capita")
         fname = "{}_new_infections.png".format("countries")
         ax.legend()
     plt.savefig("png/" + fname, bbox_inches="tight")
@@ -393,7 +396,7 @@ def plot_confirmed(
 
         nr_inhabitants = country_list[c][0]
 
-        icu_limit = get_icu_limit(icus_per_capita=country_list[c][1])
+        icu_limit = 1e6*get_icu_limit(icus_per_capita=country_list[c][1])
 
         # Derive date limits if none are given
         if date_lim is None:
@@ -402,7 +405,7 @@ def plot_confirmed(
                 np.max(ts.Date) + pd.Timedelta(forecast, unit="d"),
             ]
 
-        confirmed = np.array(ts.Confirmed) / nr_inhabitants
+        confirmed = 1e6*np.array(ts.Confirmed) / nr_inhabitants
 
         # Extrapolate based on the last 7 days
         # _f = log_interp1d(np.arange(ext_base)[::ext_base-1], confirmed[-ext_base:][::ext_base-1])
@@ -425,19 +428,20 @@ def plot_confirmed(
             color=pl.get_color(),
             alpha=0.3,
         )
-        ax.plot(date_lim, 2 * [icu_limit], "--", color=pl.get_color(), alpha=0.9)
+        ax.plot(date_lim, 2 * [icu_limit], "--", color=pl.get_color(), alpha=0.5)
 
     ax.tick_params(axis="x", rotation=60)
     ax.set_xlim(date_lim)
-    ax.set_ylim([1e-6, 1e-1])
+    ax.set_ylim([1e0, 1e4])
     ax.grid(True)
     if scale == "log":
         ax.set_yscale("log")
+    ax.yaxis.set_major_formatter(ScalarFormatter())
     if len(country_list) == 1:
-        ax.set_ylabel("confirmed cases per capita ({})".format(country_list[0]))
+        ax.set_ylabel("confirmed cases per 1,000,000 capita ({})".format(country_list[0]))
         fname = "{}_confirmed.png".format(country_list[0].replace(" ", "_").lower())
     else:
-        ax.set_ylabel("confirmed cases per capita")
+        ax.set_ylabel("confirmed cases per 1,000,000 capita")
         fname = "{}_confirmed.png".format("countries")
         ax.legend()
     plt.savefig("png/" + fname, bbox_inches="tight")
@@ -487,7 +491,7 @@ def plot_estimated_from_delay(
             color=pl.get_color(),
             alpha=0.3,
         )
-        ax.plot(date_lim, 2 * [icu_limit], "--", color=pl.get_color(), alpha=0.9)
+        ax.plot(date_lim, 2 * [icu_limit], "--", color=pl.get_color(), alpha=0.5)
 
     ax.tick_params(axis="x", rotation=60)
     ax.set_xlim(date_lim)
@@ -521,17 +525,17 @@ def plot_estimated_from_deaths(
 
         nr_inhabitants = country_list[c][0]
 
-        icu_limit = get_icu_limit(icus_per_capita=country_list[c][1])
+        icu_limit = 1e6*get_icu_limit(icus_per_capita=country_list[c][1])
 
         # Derive date limits if none are given
         if date_lim is None:
             date_lim = [np.min(ts.Date), np.max(ts.Date)]
 
         # Derive averaged time series
-        deaths = np.array(ts.Deaths)
+        deaths = 1e6*np.array(ts.Deaths)
 
         # 5 days incubation + 2 days test delay
-        death_rate = 0.006
+        death_rate = 0.013
         estimated = deaths / death_rate / nr_inhabitants
 
         # Extrapolate based on the last 7 days
@@ -554,17 +558,18 @@ def plot_estimated_from_deaths(
             color=pl.get_color(),
             alpha=0.3,
         )
-        ax.plot(date_lim, 2 * [icu_limit], "--", color=pl.get_color(), alpha=0.9)
+        ax.plot(date_lim, 2 * [icu_limit], "--", color=pl.get_color(), alpha=0.5)
 
     ax.tick_params(axis="x", rotation=60)
     ax.set_xlim(date_lim)
-    ax.set_ylim([1e-6, 1e-1])
+    ax.set_ylim([1e0, 1e5])
     ax.grid(True)
     if scale == "log":
         ax.set_yscale("log")
+    ax.yaxis.set_major_formatter(ScalarFormatter())
     if len(country_list) == 1:
         ax.set_ylabel(
-            "estimated cases per capita based on {}% death rate ({})".format(
+            "estimated cases per 1,000,000 capita based on {}% death rate ({})".format(
                 100 * death_rate, country_list[0]
             )
         )
@@ -573,7 +578,7 @@ def plot_estimated_from_deaths(
         )
     else:
         ax.set_ylabel(
-            "estimated cases per capita based on {}% death rate".format(
+            "estimated cases per 1,000,000 capita based on {}% death rate".format(
                 100 * death_rate
             )
         )
@@ -612,7 +617,7 @@ def plot_deathrate(data, country_list, avg=5, date_lim=None, scale="log"):
 
         pl, = ax.plot(dates, deaths_per_day / nr_inhabitants, alpha=0.9, label=c)
         ax.plot(
-            date_lim, 2 * [icu_limit_in_deaths], "--", color=pl.get_color(), alpha=0.9
+            date_lim, 2 * [icu_limit_in_deaths], "--", color=pl.get_color(), alpha=0.5
         )
 
     ax.tick_params(axis="x", rotation=60)
@@ -743,7 +748,7 @@ if __name__ == "__main__":
 
     if args.plot:
         extrapolation_base = 6
-        forecast = 21
+        forecast = 14
         date_lim = pd.to_datetime(
             [
                 pd.Timestamp("2020-02-15"),

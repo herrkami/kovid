@@ -58,6 +58,6 @@ This is the number of newly registered infections divided by the number of confi
 
 This is the number of daily registered new infections divided by the population size. The dashed lines here indicate a health system capacity estimate based on
 - 6% ICU treatment rate for confirmed COVID-19 patients
-- 1 week ICU care for each of these patients
+- 18 days ICU care for each of these patients
 - absolute minimum ICU capacity for non-COVID-19 patients of 3.5 ICUs/100,000 (see above)
 This plot is inspired by [this video by Harald Lesch](https://www.youtube.com/watch?v=Fx11Y4xjDwA).
